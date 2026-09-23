@@ -1,0 +1,704 @@
+Here’s a structured set of common Data Analyst problem-solving questions using SQL, moving from basic → intermediate → advanced, with realistic examples and solutions (PostgreSQL style, but mostly transferable).
+________________________________________
+1. BASIC LEVEL
+1. Retrieve all data
+Problem: Get all records from a table.
+SELECT * FROM beneficiaries;
+________________________________________
+2. Filter data
+Problem: Get beneficiaries from Dhaka district.
+SELECT *
+FROM beneficiaries
+WHERE district = 'Dhaka';
+________________________________________
+3. Sort data
+Problem: Show households sorted by size (largest first).
+SELECT beneficiary_id, household_size
+FROM beneficiaries
+ORDER BY household_size DESC;
+________________________________________
+4. Count records
+Problem: Total number of beneficiaries.
+SELECT COUNT(*) AS total_beneficiaries
+FROM beneficiaries;
+________________________________________
+5. Remove duplicates
+Problem: Get unique districts.
+SELECT DISTINCT district
+FROM beneficiaries;
+________________________________________
+2. INTERMEDIATE LEVEL
+6. Aggregation with GROUP BY
+Problem: Total beneficiaries per district.
+SELECT district, COUNT(*) AS total
+FROM beneficiaries
+GROUP BY district;
+________________________________________
+7. HAVING (filter aggregated data)
+Problem: Districts with more than 100 beneficiaries.
+SELECT district, COUNT(*) AS total
+FROM beneficiaries
+GROUP BY district
+HAVING COUNT(*) > 100;
+________________________________________
+8. JOIN tables
+Problem: Get beneficiary info with distribution details.
+SELECT b.beneficiary_id, b.district, d.distribution_date, d.amount
+FROM beneficiaries b
+INNER JOIN distributions d
+ON b.beneficiary_id = d.beneficiary_id;
+________________________________________
+9. LEFT JOIN (missing data analysis)
+Problem: Find beneficiaries who never received aid.
+SELECT b.beneficiary_id
+FROM beneficiaries b
+LEFT JOIN distributions d
+ON b.beneficiary_id = d.beneficiary_id
+WHERE d.beneficiary_id IS NULL;
+________________________________________
+10. CASE WHEN (categorization)
+Problem: Classify households.
+SELECT beneficiary_id,
+       household_size,
+       CASE 
+           WHEN household_size >= 6 THEN 'Large'
+           WHEN household_size BETWEEN 3 AND 5 THEN 'Medium'
+           ELSE 'Small'
+       END AS category
+FROM beneficiaries;
+________________________________________
+3. ADVANCED LEVEL
+11. Window Functions (Ranking)
+Problem: Rank beneficiaries by household size within each district.
+SELECT beneficiary_id,
+       district,
+       household_size,
+       ROW_NUMBER() OVER (PARTITION BY district ORDER BY household_size DESC) AS rank
+FROM beneficiaries;
+________________________________________
+12. Running Total
+Problem: Cumulative distribution amount over time.
+SELECT distribution_date,
+       SUM(amount) AS daily_total,
+       SUM(SUM(amount)) OVER (ORDER BY distribution_date) AS running_total
+FROM distributions
+GROUP BY distribution_date;
+________________________________________
+13. Subquery
+Problem: Find beneficiaries with above-average household size.
+SELECT *
+FROM beneficiaries
+WHERE household_size > (
+    SELECT AVG(household_size)
+    FROM beneficiaries
+);
+________________________________________
+14. Common Table Expression (CTE)
+Problem: Top 3 largest households per district.
+WITH ranked AS (
+    SELECT beneficiary_id,
+           district,
+           household_size,
+           ROW_NUMBER() OVER (PARTITION BY district ORDER BY household_size DESC) AS rnk
+    FROM beneficiaries
+)
+SELECT *
+FROM ranked
+WHERE rnk <= 3;
+________________________________________
+15. Pivot-style aggregation
+Problem: Monthly distribution totals.
+SELECT 
+    EXTRACT(MONTH FROM distribution_date) AS month,
+    SUM(amount) AS total_distribution
+FROM distributions
+GROUP BY month
+ORDER BY month;
+________________________________________
+16. Detect duplicates
+Problem: Find duplicate beneficiary records.
+SELECT beneficiary_id, COUNT(*)
+FROM beneficiaries
+GROUP BY beneficiary_id
+HAVING COUNT(*) > 1;
+________________________________________
+17. Gap detection (missing dates)
+Problem: Find missing distribution dates.
+SELECT d1.distribution_date + INTERVAL '1 day' AS missing_date
+FROM distributions d1
+LEFT JOIN distributions d2
+ON d1.distribution_date + INTERVAL '1 day' = d2.distribution_date
+WHERE d2.distribution_date IS NULL;
+________________________________________
+18. Advanced JOIN (Self Join)
+Problem: Compare distributions day-to-day.
+SELECT 
+    d1.distribution_date,
+    d1.amount AS today,
+    d2.amount AS previous_day
+FROM distributions d1
+LEFT JOIN distributions d2
+ON d1.distribution_date = d2.distribution_date + INTERVAL '1 day';
+________________________________________
+4. REAL-WORLD SCENARIO QUESTIONS (VERY IMPORTANT)
+These are commonly asked in interviews 👇
+________________________________________
+19. Top N per group
+SELECT *
+FROM (
+    SELECT district,
+           beneficiary_id,
+           amount,
+           RANK() OVER (PARTITION BY district ORDER BY amount DESC) AS rnk
+    FROM distributions
+) t
+WHERE rnk <= 3;
+________________________________________
+20. Retention / Repeat beneficiaries
+SELECT beneficiary_id
+FROM distributions
+GROUP BY beneficiary_id
+HAVING COUNT(*) > 1;
+________________________________________
+21. Percentage contribution
+SELECT district,
+       SUM(amount) AS total,
+       ROUND(100.0 * SUM(amount) / SUM(SUM(amount)) OVER (), 2) AS percentage
+FROM distributions d
+JOIN beneficiaries b ON d.beneficiary_id = b.beneficiary_id
+GROUP BY district;
+________________________________________
+22. First & last transaction
+SELECT beneficiary_id,
+       MIN(distribution_date) AS first_received,
+       MAX(distribution_date) AS last_received
+FROM distributions
+GROUP BY beneficiary_id;
+________________________________________
+
+Here’s a practical, WFP-style SQL cheat sheet tailored for a Data Analyst role.
+________________________________________
+🔹 1. Basic Data Retrieval (SELECT)
+SELECT Beneficiary_ID, Name, District, Household_Size
+FROM beneficiaries;
+👉 Use case (WFP): Pull list of beneficiaries for reporting.
+________________________________________
+🔹 2. Filtering Data (WHERE)
+SELECT *
+FROM distributions
+WHERE District = 'Cox''s Bazar'
+AND Distribution_Date >= '2025-01-01';
+👉 Use case: Filter food distribution after a certain date in a specific district.
+________________________________________
+🔹 3. Sorting Results (ORDER BY)
+SELECT Beneficiary_ID, Food_Ration
+FROM distributions
+ORDER BY Food_Ration DESC;
+👉 Use case: Identify highest ration receivers.
+________________________________________
+🔹 4. Aggregation (SUM, COUNT, AVG)
+SELECT District,
+       SUM(Food_Ration) AS Total_Ration,
+       COUNT(Beneficiary_ID) AS Total_Beneficiaries
+FROM distributions
+GROUP BY District;
+👉 Use case: Total food distributed per district.
+________________________________________
+🔹 5. GROUP BY with HAVING
+SELECT District, COUNT(*) AS HH_Count
+FROM beneficiaries
+GROUP BY District
+HAVING COUNT(*) > 1;
+👉 Use case: Districts with large beneficiary populations.
+________________________________________
+🔹 6. JOINs (VERY IMPORTANT in WFP)
+INNER JOIN:
+SELECT b.Beneficiary_ID, b.Name, d.Food_Ration
+FROM beneficiaries b
+INNER JOIN distributions d
+ON b.Beneficiary_ID = d.Beneficiary_ID;
+👉 Use case: Combine beneficiary info with distribution records.
+________________________________________
+LEFT JOIN:
+SELECT b.Beneficiary_ID, d.Food_Ration
+FROM beneficiaries b
+LEFT JOIN distributions d
+ON b.Beneficiary_ID = d.Beneficiary_ID;
+👉 Use case: Find beneficiaries who did NOT receive aid.
+________________________________________
+After you create a table (or result) using an INNER JOIN, how you “use” it depends on whether you saved it or not.
+✅ 1. If you just used INNER JOIN in a query (not saved)
+SELECT b.Beneficiary_ID, b.Name, d.Food_Ration
+FROM beneficiaries b
+INNER JOIN distributions d
+ON b.Beneficiary_ID = d.Beneficiary_ID;
+This result is temporary—you can’t reuse it directly later.
+To use it again, you have two main options:
+🔹 Option A: Use a subquery
+SELECT *
+FROM (
+    SELECT b.Beneficiary_ID, b.Name, d.Food_Ration
+    FROM beneficiaries b
+    INNER JOIN distributions d
+   ON b.Beneficiary_ID = d.Beneficiary_ID
+) AS joined_table
+WHERE Food_Ration> 30;
+🔹 Option B: Use a CTE (Common Table Expression)
+WITH joined_table AS (
+    SELECT b.Beneficiary_ID, b.Name, d.Food_Ration
+    FROM beneficiaries b
+    INNER JOIN distributions d
+   ON b.Beneficiary_ID = d.Beneficiary_ID
+)
+SELECT *
+FROM joined_table
+WHERE Food_Ration> 30;
+👉 This is the cleanest and most common approach.
+________________________________________
+✅ 2. If you created a new table using INNER JOIN
+If you did something like:
+CREATE TABLE beneficiary AS
+    SELECT b.Beneficiary_ID, b.Name, d.Food_Ration
+    FROM beneficiaries b
+    INNER JOIN distributions d
+   ON b.Beneficiary_ID = d.Beneficiary_ID;
+Now it’s a permanent table, and you can use it like any other table:
+SELECT * FROM beneficiary;
+SELECT name
+FROM beneficiary
+WHERE food_ration> 30;
+________________________________________
+✅ 3. If you created a VIEW (recommended for reuse)
+CREATE VIEW employee_salary_view AS
+SELECT a.id, a.name, b.salary
+FROM employees a
+INNER JOIN salaries b
+ON a.id = b.emp_id;
+Now use it like a table:
+SELECT * FROM employee_salary_view;
+________________________________________
+🔥 Best Practice (Important)
+•	Use CTE (WITH) → for temporary, readable queries
+•	Use VIEW → when you need reuse without storing data
+•	Use TABLE → when you need to store results physically
+________________________________________
+🔹 7. CASE  WHEN (Conditional Logic)
+SELECT Beneficiary_ID,
+       Household_Size,
+       CASE
+           WHEN Household_Size <= 3 THEN 'Small'
+           WHEN Household_Size <= 6 THEN 'Medium'
+           ELSE 'Large'
+       END AS HH_Category
+FROM beneficiaries;
+👉 Use case: Categorize households for targeting.
+________________________________________
+🔹 8. Subqueries
+SELECT *
+FROM beneficiaries
+WHERE Beneficiary_ID IN (
+    SELECT Beneficiary_ID
+    FROM distributions
+    WHERE Food_Ration > 50
+);
+👉 Use case: Find beneficiaries receiving large rations.
+________________________________________
+🔹 9. DISTINCT (Remove duplicates)
+SELECT DISTINCT District
+FROM beneficiaries;
+👉 Use case: Unique district list.
+________________________________________
+🔹 10. Data Cleaning (TRIM, LOWER, UPPER)
+SELECT DISTINCT UPPER(TRIM(District)) AS Clean_District
+FROM beneficiaries;
+👉 Use case: Standardize messy district names (very common in field data).
+________________________________________
+🔹 11. Handling NULL Values
+SELECT Beneficiary_ID,
+       COALESCE(Food_Ration, 0) AS Food_Ration
+FROM distributions;
+👉 Use case: Replace missing ration values with 0.
+________________________________________
+🔹 12. Window Functions (Advanced & Highly Valued)
+ROW_NUMBER():
+SELECT Beneficiary_ID, District,
+       ROW_NUMBER() OVER (PARTITION BY District ORDER BY Household_Size DESC) AS Rank
+FROM beneficiaries;
+👉 Use case: Rank households within districts.
+________________________________________
+SUM OVER():
+SELECT Beneficiary_ID, District,
+       SUM(Food_Ration) OVER (PARTITION BY District) AS District_Total
+FROM distributions;
+👉 Use case: Compare individual vs district totals.
+________________________________________
+🔹 13. Creating Tables
+CREATE TABLE beneficiaries_clean AS
+SELECT DISTINCT *
+FROM beneficiaries;
+👉 Use case: Clean dataset for analysis.
+________________________________________
+🔹 14. Updating Data
+UPDATE beneficiaries
+SET District = 'Dhaka'
+WHERE District IN ('dhaka', 'DHAKA');
+👉 Use case: Data standardization.
+________________________________________
+🔹 15. Deleting Data
+DELETE FROM beneficiaries
+WHERE Beneficiary_ID IS NULL;
+👉 Use case: Remove invalid records.
+________________________________________
+🔹 16. Indexing (Performance Optimization)
+CREATE INDEX idx_beneficiary_id
+ON beneficiaries(Beneficiary_ID);
+👉 Use case: Faster queries on large datasets.
+________________________________________
+🔹 17. Common WFP Scenario Queries
+✅ Total food distributed by month
+SELECT DATE_TRUNC('month', Distribution_Date) AS Month,
+       SUM(Food_Ration) AS Total_Distributed
+FROM distributions
+GROUP BY Month
+ORDER BY Month;
+________________________________________
+✅ Total food distributed by district (very common in WFP analysis): 
+SELECT
+district,
+DATE_TRUNC('month', distribution_date) AS month,
+SUM(food_ration) AS total_distribution
+FROM distributions
+GROUP BY district, month 
+ORDER BY district, month; 
+________________________________________
+✅ If your date is stored as text (common messy dataset issue): 
+SELECT
+DATE_TRUNC('month', TO_DATE(distribution_date, 'YYYY-MM-DD')) AS month,
+SUM(food_ration) AS total_distribution
+FROM distributions
+GROUP BY 1
+ORDER BY 1; 
+________________________________________
+✅ Identify duplicate beneficiaries
+SELECT Beneficiary_ID, COUNT(*)
+FROM beneficiaries
+GROUP BY Beneficiary_ID
+HAVING COUNT(*) > 1;
+________________________________________
+✅ Beneficiaries not receiving aid
+SELECT b.Beneficiary_ID
+FROM beneficiaries b
+LEFT JOIN distributions d
+ON b.Beneficiary_ID = d.Beneficiary_ID
+WHERE d.Beneficiary_ID IS NULL;
+________________________________________
+📊 Dataset Structure
+1. Beneficiaries
+Beneficiary_ID	Name	District	Household_Size	Gender
+B001	Rahim	Dhaka	5	M
+B002	Karim	dhaka	3	M
+B003	Ayesha	Cox's Bazar	7	F
+B004	Fatema	DHAKA	2	F
+B005	Salma	Khulna	6	F
+________________________________________
+2. distributions
+Distribution_ID	Beneficiary_ID	Food_Ration	Distribution_Date
+D001	B001	50	2025-01-10
+D002	B002	30	2025-01-12
+D003	B001	20	2025-02-01
+D004	B003	70	2025-01-15
+________________________________________
+3. nutrition
+Beneficiary_ID	Nutrition_Status
+B001	Normal
+B002	Moderate
+B003	Severe
+B004	Normal
+________________________________________
+🧠 SECTION A: BASIC (Easy)  
+Q1. Show all beneficiaries from Dhaka (case insensitive)
+SELECT *
+FROM beneficiaries
+WHERE LOWER(District) = 'dhaka';
+________________________________________
+Q2. List unique districts
+SELECT DISTINCT District
+FROM beneficiaries;
+________________________________________
+Q3. Count total beneficiaries
+SELECT COUNT(*) AS Total_Beneficiaries
+FROM beneficiaries;
+________________________________________
+🧠 SECTION B: INTERMEDIATE
+Q4. Total food distributed per beneficiary
+SELECT Beneficiary_ID,
+       SUM(Food_Ration) AS Total_Ration
+FROM distributions
+GROUP BY Beneficiary_ID;
+________________________________________
+Q5. Total food distributed per district
+SELECT b.District,
+       SUM(d.Food_Ration) AS Total_Ration
+FROM beneficiaries b
+JOIN distributions d
+ON b.Beneficiary_ID = d.Beneficiary_ID
+GROUP BY b.District;
+________________________________________
+Q6. Find beneficiaries who did NOT receive any food
+SELECT b.Beneficiary_ID
+FROM beneficiaries b
+LEFT JOIN distributions d
+ON b.Beneficiary_ID = d.Beneficiary_ID
+WHERE d.Beneficiary_ID IS NULL;
+👉 Expected answer: B004, B005
+________________________________________
+🧠 SECTION C: ADVANCED
+Q7. Categorize households (Small/Medium/Large)
+SELECT Beneficiary_ID,
+       Household_Size,
+       CASE
+           WHEN Household_Size <= 3 THEN 'Small'
+           WHEN Household_Size <= 6 THEN 'Medium'
+           ELSE 'Large'
+       END AS Category
+FROM beneficiaries;
+________________________________________
+Q8. Top 2 beneficiaries receiving highest total ration
+SELECT Beneficiary_ID,
+       SUM(Food_Ration) AS Total_Ration
+FROM distributions
+GROUP BY Beneficiary_ID
+ORDER BY Total_Ration DESC
+LIMIT 2;
+________________________________________
+ Q9. Clean district names (Dhaka standardization)
+SELECT Beneficiary_ID,
+       UPPER(TRIM(District)) AS Clean_District
+FROM beneficiaries;
+________________________________________
+Q10. Combine all data (Beneficiary + Distribution + Nutrition)
+SELECT b.Name,
+       b.District,
+       d.Food_Ration,
+       n.Nutrition_Status
+FROM beneficiaries b
+LEFT JOIN distributions d
+ON b.Beneficiary_ID = d.Beneficiary_ID
+LEFT JOIN nutrition n
+ON b.Beneficiary_ID = n.Beneficiary_ID;
+________________________________________
+🧠 BONUS (VERY IMPORTANT – REAL WFP LOGIC)
+Q11. Identify vulnerable beneficiaries (Severe nutrition OR large household)
+SELECT b.Beneficiary_ID,
+       b.Household_Size,
+       n.Nutrition_Status
+FROM beneficiaries b
+LEFT JOIN nutrition n
+ON b.Beneficiary_ID = n.Beneficiary_ID
+WHERE n.Nutrition_Status = 'Severe'
+   OR b.Household_Size > 6;
+________________________________________
+Q12. Monthly food distribution
+SELECT DATE_TRUNC('month', Distribution_Date) AS Month,
+       SUM(Food_Ration) AS Total_Distribution
+FROM distributions
+GROUP BY Month
+ORDER BY Month;
+________________________________________
+🟢 SECTION A: Basic (10 marks)
+Q1. Write a query to show all beneficiaries from Dhaka (case insensitive).
+Q2. Count total number of beneficiaries.
+Q3. List all unique districts.
+🟡 SECTION B: Intermediate (20 marks)
+Q4. Calculate total food ration received by each beneficiary.
+Q5. Find total food distributed per district.
+Q6. Identify beneficiaries who did NOT receive any food.
+Q7. Show beneficiaries with Household_Size > 5.
+🟡 SECTION B: Advanced (30 marks)
+Q8. Categorize households:
+•	≤3 → Small
+•	4–6 → Medium
+•	6 → Large
+Q9. Find top 3 beneficiaries who received the highest total food.
+Q10. Join all three tables and display:
+•	Name
+•	District
+•	Food_Ration
+•	Nutrition_Status
+Q11. Find vulnerable beneficiaries:
+•	Severe nutrition OR
+•	Household size > 6
+Q12. Calculate monthly total food distribution.
+Q13. Find duplicate Beneficiary_IDs.
+Q14. Standardize district names (Dhaka issue).
+Q15. Find beneficiaries who received food more than once.
+________________________________________
+✅ Answer Key (Check AFTER Attempt)
+✔ Q1
+SELECT *
+FROM beneficiaries
+WHERE LOWER(District) = 'dhaka';
+✔ Q4
+SELECT Beneficiary_ID, SUM(Food_Ration) AS Total_Ration
+FROM distributions
+GROUP BY Beneficiary_ID;
+✔ Q5
+SELECT b.District, SUM(d.Food_Ration)
+FROM beneficiaries b
+JOIN distributions d
+ON b.Beneficiary_ID = d.Beneficiary_ID
+GROUP BY b.District;
+✔ Q6
+SELECT b.Beneficiary_ID
+FROM beneficiaries b
+LEFT JOIN distributions d
+ON b.Beneficiary_ID = d.Beneficiary_ID
+WHERE d.Beneficiary_ID IS NULL;
+✔ Q8
+SELECT Beneficiary_ID,
+CASE
+  WHEN Household_Size <= 3 THEN 'Small'
+  WHEN Household_Size <= 6 THEN 'Medium'
+  ELSE 'Large'
+END AS Category
+FROM beneficiaries;
+✔ Q9
+SELECT Beneficiary_ID, SUM(Food_Ration) AS Total
+FROM distributions
+GROUP BY Beneficiary_ID
+ORDER BY Total DESC
+LIMIT 3;
+✔ Q10
+SELECT b.Name, b.District, d.Food_Ration, n.Nutrition_Status
+FROM beneficiaries b
+LEFT JOIN distributions d
+ON b.Beneficiary_ID = d.Beneficiary_ID
+LEFT JOIN nutrition n
+ON b.Beneficiary_ID = n.Beneficiary_ID;
+✔ Q11
+SELECT b.Beneficiary_ID
+FROM beneficiaries b
+LEFT JOIN nutrition n
+ON b.Beneficiary_ID = n.Beneficiary_ID
+WHERE n.Nutrition_Status = 'Severe'
+ OR b.Household_Size > 6;
+✔ Q12
+SELECT DATE_TRUNC('month', Distribution_Date),
+       SUM(Food_Ration)
+FROM distributions
+GROUP BY 1;
+✔ Q13 
+SELECT COUNT(*) 
+FROM distributions
+GROUP BY  beneficiary_id
+HAVING COUNT(*)>1;
+✔ Q14 
+SELECT DISTINCT LOWER(district) FROM beneficiaries;
+✔ Q15 
+SELECT beneficiary_id, COUNT(*) FROM distributions
+GROUP BY  beneficiary_id
+HAVING COUNT(*)>1;
+
+
+
+
+
+
+
+
+
+
+-----TFQ-----
+/* Dropping tables */
+DROP TABLE IF EXISTS STUDENT_CLASSES CASCADE;
+DROP TABLE IF EXISTS STUDENT_PARENT CASCADE;
+DROP TABLE IF EXISTS STUDENTS CASCADE;
+DROP TABLE IF EXISTS PARENTS CASCADE;
+DROP TABLE IF EXISTS CLASSES CASCADE;
+DROP TABLE IF EXISTS STAFF_SALARY CASCADE;
+DROP TABLE IF EXISTS STAFF CASCADE;
+DROP TABLE IF EXISTS SCHOOL CASCADE;
+DROP TABLE IF EXISTS SUBJECTS CASCADE;
+DROP TABLE IF EXISTS ADDRESS CASCADE;
+DROP TABLE IF EXISTS PRODUCTS CASCADE;
+
+/* Queary in Tables */
+SELECT * FROM SCHOOL;
+SELECT * FROM SUBJECTS;
+SELECT * FROM STAFF;
+SELECT * FROM STAFF_SALARY;
+SELECT * FROM CLASSES;
+SELECT * FROM STUDENTS;
+SELECT * FROM PARENTS;
+SELECT * FROM STUDENT_CLASSES;
+SELECT * FROM STUDENT_PARENT;
+SELECT * FROM ADDRESS;
+
+/* Different SQL Operators:::    = , <, >, >=, <=, <>, !=, BETWEEN, ORDER BY, IN, NOT IN, LIKE, ALIASE, DISTINCT, LIMIT, CASE:
+Comparison Operators: =, <>, != , >, <, >=, <=
+Arithmetic Operators: +, -, *, /, %
+Logical Operators: AND, OR, NOT, IN, BETWEEN, LIKE etc.    */
+
+--- Basic queries
+SELECT * FROM STUDENTS;   -- Fetch all columns and all records (rows) from table.
+SELECT ID, FIRST_NAME FROM STUDENTS; -- Fetch only ID and FIRST_NAME columns from students table.
+---- Comparison Operators
+SELECT * FROM SUBJECTS 
+WHERE SUBJECT_NAME = 'Mathematics'; -- Fetch all records where subject name is Mathematics.
+SELECT * FROM SUBJECTS 
+WHERE SUBJECT_NAME <> 'Mathematics'; -- Fetch all records where subject name is not Mathematics.
+SELECT * FROM SUBJECTS 
+WHERE SUBJECT_NAME != 'Mathematics'; -- same as above. Both "<>" and "!=" are NOT EQUAL TO operator in SQL.
+SELECT * FROM STAFF_SALARY 
+WHERE SALARY > 10000; -- All records where salary is greater than 10000.
+SELECT * FROM STAFF_SALARY 
+WHERE SALARY < 10000; -- All records where salary is less than 10000.
+SELECT * FROM STAFF_SALARY 
+WHERE SALARY < 10000 ORDER BY SALARY; -- All records where salary is less than 10000 and the output is sorted in ascending order of salary.
+SELECT * FROM STAFF_SALARY 
+WHERE SALARY < 10000 ORDER BY SALARY DESC; -- All records where salary is less than 10000 and the output is sorted in descending order of salary.
+SELECT * FROM STAFF_SALARY WHERE SALARY >= 10000; -- All records where salary is greater than or equal to 10000.
+SELECT * FROM STAFF_SALARY WHERE SALARY <= 10000; -- All records where salary is less than or equal to 10000.
+
+--- Logical Operators
+SELECT * FROM STAFF_SALARY 
+WHERE SALARY BETWEEN 5000 AND 10000; -- Fetch all records where salary is between 5000 and 10000.
+SELECT * FROM SUBJECTS 
+WHERE SUBJECT_NAME IN ('Mathematics', 'Science', 'Arts'); -- All records where subjects is either Mathematics, Science or Arts.
+SELECT * FROM SUBJECTS 
+WHERE SUBJECT_NAME NOT IN ('Mathematics', 'Science', 'Arts'); -- All records where subjects is not Mathematics, Science or Arts.
+SELECT * FROM SUBJECTS 
+WHERE SUBJECT_NAME LIKE 'Computer%'; -- Fetch records where subject name has Computer as prefixed. % matches all characters.
+SELECT * FROM SUBJECTS 
+WHERE SUBJECT_NAME NOT LIKE 'Computer%'; -- Fetch records where subject name does not have Computer as prefixed. % matches all characters.
+SELECT * FROM STAFF 
+WHERE AGE > 50 AND GENDER = 'F'; -- Fetch records where staff is female and is over 50 years of age. AND operator fetches result only if the condition mentioned both on left side and right side of AND operator holds true. In OR operator, atleast any one of the conditions needs to hold true to fetch result.
+SELECT * FROM STAFF 
+WHERE FIRST_NAME LIKE 'A%' AND LAST_NAME LIKE 'S%'; -- Fetch record where first name of staff starts with "A" AND last name starts with "S".
+SELECT * FROM STAFF 
+WHERE FIRST_NAME LIKE 'A%' OR LAST_NAME LIKE 'S%'; -- Fetch record where first name of staff starts with "A" OR last name starts with "S". Meaning either the first name or the last name condition needs to match for query to return data.
+SELECT * FROM STAFF 
+WHERE (FIRST_NAME LIKE 'A%' OR LAST_NAME LIKE 'S%') AND AGE > 50; -- Fetch record where staff is over 50 years of age AND has his first name starting with "A" OR his last name starting with "S".
+
+---- Arithmetic Operators
+SELECT (5+2) AS ADDITION;   -- Sum of two numbers. PostgreSQL does not need FROM clause to execute such queries.
+SELECT (5-2) AS SUBTRACT;   -- Oracle & MySQL equivalent query would be -->  select (5+2) as Addition FROM DUAL; --> Where dual is a dummy table.
+SELECT (5*2) AS MULTIPLY;
+SELECT (5/2) AS DIVIDE;   -- Divides 2 numbers and returns whole number.
+SELECT (5%2) AS MODULUS;  -- Divides 2 numbers and returns the remainder
+
+SELECT STAFF_TYPE FROM STAFF ; -- Returns lot of duplicate data.
+SELECT DISTINCT STAFF_TYPE FROM STAFF ; -- Returns unique values only.
+SELECT STAFF_TYPE FROM STAFF LIMIT 5; -- Fetches only the first 5 records from the result.
+---- CASE statement:  (IF 1 then print True ; IF 0 then print FALSE ; ELSE print -1)
+SELECT STAFF_ID, SALARY
+, CASE WHEN SALARY >= 10000 THEN 'High Salary'
+       WHEN SALARY BETWEEN 5000 AND 10000 THEN 'Average Salary'
+       WHEN SALARY < 5000 THEN 'Too Low'
+  END AS RANGE
+FROM STAFF_SALARY
+ORDER BY 2 DESC;
+
+---- TO_CHAR / TO_DATE:
+SELECT * FROM STUDENTS WHERE TO_CHAR(DOB,'YYYY') = '2014';
+SELECT * FROM STUDENTS WHERE DOB = TO_DATE('13-JAN-2014','DD-MON-YYYY');
